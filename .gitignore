@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+.circle/
+recovery_file*
+traces.jsonl
+console.jsonl
+*.log
+.DS_Store
+contracts/out/
+contracts/cache/
+cache/
+out/
+node_modules/.tmp/
+*.tsbuildinfo
