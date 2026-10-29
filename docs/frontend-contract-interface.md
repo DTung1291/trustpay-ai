@@ -1,6 +1,6 @@
 # Frontend / contract interface
 
-This is the exact call surface the frontend (`src/lib/contract.ts`) uses. A contract that implements `docs/trustpay-contract-spec.md` and returns these shapes works with the app unchanged. The contract itself is not part of this repository yet.
+This is the exact call surface the frontend (`src/lib/contract.ts`) uses. It is implemented by `contracts/trustpay_verification.py`.
 
 All view methods return JSON-compatible values. Addresses are `0x` hex strings. Timestamps are unix seconds.
 

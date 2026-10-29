@@ -1,23 +1,55 @@
 # Deployment
 
-TrustPay AI has two parts: the Intelligent Contract and the web app. Nothing has been deployed from this repository yet.
+TrustPay AI has two parts: the Intelligent Contract and the web app. The current contract is deployed on Studionet and has completed a live milestone-verification workflow with an `APPROVED` verdict.
 
 ## Contract status
 
-The contract source (`contracts/trustpay_verification.py`) is not in this repository. The behavior it must implement is in `docs/trustpay-contract-spec.md`, and the exact call surface the web app uses is in `docs/frontend-contract-interface.md`.
+The contract source is `contracts/trustpay_verification.py`. It implements the complete interface in `docs/frontend-contract-interface.md`, including the leader/validator consensus workflow. Until it is deployed and configured, the web app shows a setup screen and performs no contract calls.
 
-Until a contract implementing that interface is deployed and its address is configured, the web app shows a setup screen and performs no contract calls.
+## Validate before deployment
+
+```bash
+bun run test:contract
+```
+
+This always runs Python syntax checks and local contract tests. Install the official linter with `pip install genvm-linter`; when `genvm-lint` is available, the same command also validates the pinned GenVM contract schema and ABI. Do not publish an address until `genvm-lint` and a Studio deployment both succeed.
+
+The expected ABI/schema is checked in at `contracts/contract-metadata/trustpay_verification.schema.json`. Regenerate and compare it with the official linter when `genvm-lint` is installed:
+
+```bash
+genvm-lint schema contracts/trustpay_verification.py \
+  --output contracts/contract-metadata/trustpay_verification.schema.json
+```
 
 ## Deploy the contract to Studionet (external GenLayer environment)
 
 Use the GenLayer tooling described at https://docs.genlayer.com/developers/intelligent-contracts/tooling-setup.
 
-1. Install the CLI: `npm install -g genlayer`
-2. Select the network: `genlayer network set` and choose Studionet. Studionet uses chain ID 61999 and RPC `https://studio.genlayer.com/api`.
-3. Deploy: `genlayer deploy --contract contracts/trustpay_verification.py`
-4. Copy the deployed contract address.
+1. Install the current GenLayer CLI following the official documentation.
+2. Select and inspect Studionet: `genlayer network set studionet` then `genlayer network info`. Studionet uses chain ID 61999.
+3. Deploy: `genlayer deploy --contract contracts/trustpay_verification.py --rpc https://studio.genlayer.com/api`
+4. Wait for finalization, confirm execution is `SUCCESS`, then copy both the deployment transaction hash and contract address.
 
 You can also deploy from the hosted Studio at https://studio.genlayer.com.
+
+## Live acceptance checklist
+
+After deployment:
+
+1. Call `get_agreement_count`; it must return `0` on a fresh deployment.
+2. Configure the frontend with the address and create an agreement from the client account.
+3. From the named freelancer account, accept it and submit a public GitHub evidence URL.
+4. Request verification and inspect the Studio transaction timeline. It must show validator votes and a finalized successful execution.
+5. Call `get_verification(..., round=1)` and save the returned verdict plus the transaction hash as submission evidence.
+6. Record the address and transaction hashes in the deployment record below.
+
+## Deployment record
+
+- Network: Studionet (chain ID 61999)
+- Contract address: [`0x570945847102A400FD76A4842394Fc23aDb8635a`](https://explorer-studio.genlayer.com/address/0x570945847102A400FD76A4842394Fc23aDb8635a)
+- Deployment transaction: [`0x05d08b5d8628e6d51703a4821dfac845648e190c9556412644fe4b8c9e77cd4f`](https://explorer-studio.genlayer.com/tx/0x05d08b5d8628e6d51703a4821dfac845648e190c9556412644fe4b8c9e77cd4f) — `FINALIZED`, consensus `Accepted`
+- First finalized verification transaction: [`0x2b4e7c1b332ad16d454bdb29ea0bdd6951eb44db048b92cf08b58e07f4f74936`](https://explorer-studio.genlayer.com/tx/0x2b4e7c1b332ad16d454bdb29ea0bdd6951eb44db048b92cf08b58e07f4f74936) — `FINALIZED`, consensus `Accepted`, stored verdict `APPROVED`
+- Evidence record: `docs/deployment-evidence.md`
 
 ## Point the web app at the contract
 

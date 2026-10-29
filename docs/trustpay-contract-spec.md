@@ -1,6 +1,6 @@
 # TrustPay AI: Intelligent Contract Specification
 
-Status: specification only. No contract source, deployment, test run, or consensus result exists yet. Every API name below must be checked against https://docs.genlayer.com/ before implementation.
+Status: implemented by `contracts/trustpay_verification.py`, covered by local contract tests, deployed on Studionet, and exercised through a finalized live workflow whose stored verdict is `APPROVED`. See `docs/deployment-evidence.md`.
 
 ## 1. Purpose
 
@@ -138,9 +138,9 @@ The contract keeps the full verification history per milestone so the frontend c
 - Deterministic outcome derivation
 - No hidden state used for secrets (all contract state is public)
 
-## 13. Test plan (to run once code exists)
+## 13. Test plan
 
-Direct tests: creation and acceptance; access control for every write; criteria immutability; evidence validation (bad scheme, bad SHA, oversized); invalid transitions; duplicate verification; round cap; outcome derivation (all met, one unmet, one unclear, malformed model output); external evidence handling with hostile text.
+Local tests currently cover creation/acceptance, access control, evidence host validation, the complete approved flow, malformed model output, read methods, and validator disagreement without a consumed round. Run them with `bun run test:contract`.
 
 Integration tests (Studionet): full journey from create to verdict; resubmission round; unreachable URL; consensus-failure handling; transaction status reporting in the frontend.
 
@@ -150,8 +150,6 @@ Four screens: Dashboard, Create Agreement, Agreement Details / Submit Evidence, 
 
 ## 15. Open items
 
-1. Confirm the exact Python contract APIs for web access, model prompting, and equivalence comparison in the current GenLayer docs.
-2. Failed-consensus semantics: the docs say undetermined transactions do not modify state. Confirm on Studionet with a forced-disagreement test.
-3. Confirm the Studionet chain configuration and wallet connection method for genlayer-js.
-4. Decide the milestone cap (proposed 5) and round cap (proposed 3).
-5. Decide whether `cancel_agreement` ships in the MVP.
+1. Confirm failed-consensus semantics on Studionet with a forced-disagreement test.
+2. Exercise the unreachable-evidence and resubmission paths live on Studionet.
+3. Decide whether `cancel_agreement` ships in the MVP.

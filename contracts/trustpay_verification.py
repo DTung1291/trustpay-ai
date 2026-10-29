@@ -1,14 +1,19 @@
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
-"""TrustPay AI GenLayer MVP (Studionet candidate, requires GenVM testing).
+"""Deployable TrustPay AI Intelligent Contract for GenLayer Studionet.
 
 No tokens or payments are held. Each agreement and its milestone history is
 serialized as bounded JSON in GenLayer persistent storage. Read methods match
 TrustPay AI's frontend-contract-interface.md.
+
+The verification write contains both the leader evaluation and an independent
+validator evaluation. Only the structured per-criterion decisions are compared;
+free-text reasoning is intentionally excluded from consensus comparison.
 """
 from genlayer import *
+import base64
 import json
 import re
-import time
+from datetime import datetime
 from urllib.parse import urlsplit
 
 MAX_MILESTONES = 5
@@ -17,32 +22,57 @@ MAX_CRITERIA = 10
 MAX_EVIDENCE_BYTES = 12000
 
 
+def _revert(message):
+    """Raise a user-visible GenVM revert instead of an unrecoverable exception."""
+    raise gl.vm.UserError(message)
+
+
+def _timestamp():
+    """Return the consensus-pinned transaction time as Unix seconds."""
+    value = gl.message_raw["datetime"].replace("Z", "+00:00")
+    return int(datetime.fromisoformat(value).timestamp())
+
+
 def _text(value, label, cap):
     if not isinstance(value, str) or not value.strip() or len(value) > cap:
-        raise ValueError(f"{label}: invalid length")
+        _revert(f"{label}: invalid length")
     if any(ord(c) < 32 for c in value):
-        raise ValueError(f"{label}: control character")
+        _revert(f"{label}: control character")
     return value.strip()
 
 
 def _evidence_url(value):
     value = _text(value, "evidence_url", 500)
     if any(c.isspace() for c in value):
-        raise ValueError("evidence_url: whitespace")
+        _revert("evidence_url: whitespace")
     parsed = urlsplit(value)
     if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
-        raise ValueError("evidence_url: HTTPS URL without credentials required")
+        _revert("evidence_url: HTTPS URL without credentials required")
     if parsed.port is not None and parsed.port != 443:
-        raise ValueError("evidence_url: nonstandard port")
+        _revert("evidence_url: nonstandard port")
     if parsed.hostname.lower() not in ("github.com", "raw.githubusercontent.com", "api.github.com"):
-        raise ValueError("evidence_url: MVP permits public GitHub hosts only")
+        _revert("evidence_url: MVP permits public GitHub hosts only")
     return value
 
 
 def _sha(value):
     if not isinstance(value, str) or (value and not re.fullmatch(r"[0-9a-fA-F]{7,40}", value)):
-        raise ValueError("commit_sha: 7-40 hex characters or empty")
+        _revert("commit_sha: 7-40 hex characters or empty")
     return value.lower()
+
+
+def _address(value):
+    """Use GenLayer's canonical hex form for storage and comparisons.
+
+    ABI-decoded ``Address`` parameters arrive as integers while message senders
+    are GenLayer ``Address`` objects. Canonicalize both to the same 20-byte hex
+    representation before storing or comparing them.
+    """
+    if isinstance(value, int):
+        if value < 0 or value >= 2 ** 160:
+            _revert("address out of range")
+        return f"0x{value:040x}"
+    return value.as_hex.lower()
 
 
 def _outcome(results):
@@ -59,6 +89,39 @@ def _fallback(n, reason):
         {"criterion_index": i, "met": "unclear", "reason": reason[:240]}
         for i in range(n)
     ], "summary": reason[:500]}
+
+
+def _github_evidence_request(url):
+    """Map immutable GitHub file URLs to the validator-friendly Contents API."""
+    parsed = urlsplit(url)
+    parts = parsed.path.lstrip("/").split("/")
+    request_url = url
+    if parsed.hostname.lower() == "raw.githubusercontent.com" and len(parts) >= 4:
+        owner, repo, ref = parts[:3]
+        path = "/".join(parts[3:])
+        request_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={ref}"
+    elif parsed.hostname.lower() == "github.com" and len(parts) >= 5 and parts[2] == "blob":
+        owner, repo, ref = parts[0], parts[1], parts[3]
+        path = "/".join(parts[4:])
+        request_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={ref}"
+    return request_url
+
+
+def _decode_evidence_body(body):
+    """Decode raw bytes or GitHub's base64 Contents API response."""
+    if isinstance(body, bytes):
+        text = body[:MAX_EVIDENCE_BYTES].decode("utf-8", errors="replace")
+    else:
+        text = str(body)[:MAX_EVIDENCE_BYTES]
+    if text.lstrip().startswith("{"):
+        try:
+            payload = json.loads(text)
+            if payload.get("encoding") == "base64" and isinstance(payload.get("content"), str):
+                encoded = payload["content"].replace("\n", "")
+                return base64.b64decode(encoded)[:MAX_EVIDENCE_BYTES].decode("utf-8", errors="replace")
+        except (ValueError, TypeError):
+            pass
+    return text
 
 
 def _normalise_eval(value, criterion_count):
@@ -92,10 +155,10 @@ class TrustPayVerification(gl.Contract):
 
     def _load(self, agreement_id):
         if not isinstance(agreement_id, int) or agreement_id < 1 or agreement_id > int(self.agreement_count):
-            raise ValueError("agreement not found")
+            _revert("agreement not found")
         data = self.agreements_json.get(u32(agreement_id), "")
         if not data:
-            raise ValueError("agreement not found")
+            _revert("agreement not found")
         return json.loads(data)
 
     def _save(self, agreement):
@@ -105,25 +168,25 @@ class TrustPayVerification(gl.Contract):
     def create_agreement(self, title: str, description: str, freelancer: Address, milestones_json: str) -> int:
         title = _text(title, "title", 120)
         description = _text(description, "description", 1000)
-        client = str(gl.message.sender_address).lower()
-        freelance = str(freelancer).lower()
+        client = _address(gl.message.sender_address)
+        freelance = _address(freelancer)
         if freelance == client or freelance == "0x" + "0" * 40:
-            raise ValueError("freelancer must be a different nonzero address")
+            _revert("freelancer must be a different nonzero address")
         if len(milestones_json) > 9000:
-            raise ValueError("milestones_json too long")
+            _revert("milestones_json too long")
         try:
             milestones = json.loads(milestones_json)
         except (TypeError, ValueError):
-            raise ValueError("milestones_json invalid JSON")
+            _revert("milestones_json invalid JSON")
         if not isinstance(milestones, list) or not 1 <= len(milestones) <= MAX_MILESTONES:
-            raise ValueError("milestones count must be 1-5")
+            _revert("milestones count must be 1-5")
         prepared = []
         for idx, item in enumerate(milestones):
             if not isinstance(item, dict) or set(item.keys()) != {"title", "criteria"}:
-                raise ValueError("milestone shape invalid")
+                _revert("milestone shape invalid")
             crit = item["criteria"]
             if not isinstance(crit, list) or not 1 <= len(crit) <= MAX_CRITERIA:
-                raise ValueError("criteria count must be 1-10")
+                _revert("criteria count must be 1-10")
             prepared.append({
                 "index": idx, "title": _text(item["title"], "milestone title", 120),
                 "criteria": [_text(c, "criterion", 300) for c in crit],
@@ -134,7 +197,7 @@ class TrustPayVerification(gl.Contract):
         self._save({
             "id": aid, "client": client, "freelancer": freelance,
             "title": title, "description": description, "status": "PENDING_ACCEPTANCE",
-            "created_at": int(time.time()), "accepted_at": 0, "milestones": prepared,
+            "created_at": _timestamp(), "accepted_at": 0, "milestones": prepared,
         })
         self.agreement_count = u32(aid)
         return aid
@@ -142,30 +205,30 @@ class TrustPayVerification(gl.Contract):
     @gl.public.write
     def accept_agreement(self, agreement_id: int):
         a = self._load(agreement_id)
-        if str(gl.message.sender_address).lower() != a["freelancer"]:
-            raise ValueError("only freelancer may accept")
+        if _address(gl.message.sender_address) != a["freelancer"]:
+            _revert("only freelancer may accept")
         if a["status"] != "PENDING_ACCEPTANCE":
-            raise ValueError("agreement not awaiting acceptance")
+            _revert("agreement not awaiting acceptance")
         a["status"] = "ACTIVE"
-        a["accepted_at"] = int(time.time())
+        a["accepted_at"] = _timestamp()
         self._save(a)
 
     @gl.public.write
     def submit_deliverable(self, agreement_id: int, milestone_index: int, evidence_url: str, commit_sha: str):
         a = self._load(agreement_id)
-        if str(gl.message.sender_address).lower() != a["freelancer"]:
-            raise ValueError("only freelancer may submit")
+        if _address(gl.message.sender_address) != a["freelancer"]:
+            _revert("only freelancer may submit")
         if a["status"] != "ACTIVE":
-            raise ValueError("agreement not active")
+            _revert("agreement not active")
         if not isinstance(milestone_index, int) or not 0 <= milestone_index < len(a["milestones"]):
-            raise ValueError("invalid milestone index")
+            _revert("invalid milestone index")
         m = a["milestones"][milestone_index]
         if m["status"] != "AWAITING_EVIDENCE" or m["rounds_used"] >= MAX_ROUNDS:
-            raise ValueError("milestone not accepting evidence")
+            _revert("milestone not accepting evidence")
         url = _evidence_url(evidence_url)
         sha = _sha(commit_sha)
         m["submissions"].append({"url": url, "commit_sha": sha,
-            "submitted_by": a["freelancer"], "submitted_at": int(time.time()),
+            "submitted_by": a["freelancer"], "submitted_at": _timestamp(),
             "round": m["rounds_used"] + 1})
         m["status"] = "EVIDENCE_SUBMITTED"
         self._save(a)
@@ -173,16 +236,16 @@ class TrustPayVerification(gl.Contract):
     @gl.public.write
     def request_verification(self, agreement_id: int, milestone_index: int):
         a = self._load(agreement_id)
-        caller = str(gl.message.sender_address).lower()
+        caller = _address(gl.message.sender_address)
         if caller not in (a["client"], a["freelancer"]):
-            raise ValueError("only client or freelancer may verify")
+            _revert("only client or freelancer may verify")
         if a["status"] != "ACTIVE":
-            raise ValueError("agreement not active")
+            _revert("agreement not active")
         if not isinstance(milestone_index, int) or not 0 <= milestone_index < len(a["milestones"]):
-            raise ValueError("invalid milestone index")
+            _revert("invalid milestone index")
         m = a["milestones"][milestone_index]
         if m["status"] != "EVIDENCE_SUBMITTED" or m["rounds_used"] >= MAX_ROUNDS:
-            raise ValueError("no pending submission or round cap reached")
+            _revert("no pending submission or round cap reached")
         submission = dict(m["submissions"][-1])
         criteria = list(m["criteria"])
         url = submission["url"]
@@ -191,14 +254,9 @@ class TrustPayVerification(gl.Contract):
         def independent_assessment():
             try:
                 # Public HTTPS content is untrusted; use bounded text only.
-                response = gl.nondet.web.get(url)
-                if response.status_code != 200:
-                    return _fallback(len(criteria), "evidence unreachable")
-                body = response.body
-                if isinstance(body, bytes):
-                    body = body[:MAX_EVIDENCE_BYTES].decode("utf-8", errors="replace")
-                else:
-                    body = str(body)[:MAX_EVIDENCE_BYTES]
+                request_url = _github_evidence_request(url)
+                response = gl.nondet.web.get(request_url)
+                body = _decode_evidence_body(response.body)
                 if not body.strip():
                     return _fallback(len(criteria), "evidence empty")
                 safe_criteria = json.dumps(criteria, ensure_ascii=True)
@@ -217,8 +275,12 @@ class TrustPayVerification(gl.Contract):
                 )
                 output = gl.nondet.exec_prompt(prompt, response_format="json")
                 return _normalise_eval(output, len(criteria))
-            except Exception:
-                return _fallback(len(criteria), "evidence unreachable or malformed evaluation")
+            except Exception as exc:
+                # Preserve a bounded diagnostic in consensus output. This keeps
+                # failures reviewable on Explorer instead of collapsing every
+                # web/LLM/runtime error into the same opaque verdict.
+                reason = f"{type(exc).__name__}: {str(exc)}"
+                return _fallback(len(criteria), reason)
 
         def validator_fn(leader_result):
             if not isinstance(leader_result, gl.vm.Return):
@@ -238,7 +300,7 @@ class TrustPayVerification(gl.Contract):
         result = _normalise_eval(result, len(criteria))
         outcome = _outcome(result["criteria_results"])
         round_no = m["rounds_used"] + 1
-        timestamp = int(time.time())
+        timestamp = _timestamp()
         m["verifications"].append({
             "round": round_no, "outcome": outcome, "summary": result["summary"],
             "criteria_results": result["criteria_results"], "evidence_url": url,
@@ -260,7 +322,7 @@ class TrustPayVerification(gl.Contract):
 
     @gl.public.view
     def get_agreement_ids_for(self, account: Address) -> list[int]:
-        needle = str(account).lower()
+        needle = _address(account)
         results = []
         for idx in range(1, int(self.agreement_count) + 1):
             a = self._load(idx)
@@ -279,7 +341,7 @@ class TrustPayVerification(gl.Contract):
     def get_milestone(self, agreement_id: int, milestone_index: int) -> dict:
         a = self._load(agreement_id)
         if not isinstance(milestone_index, int) or not 0 <= milestone_index < len(a["milestones"]):
-            raise ValueError("invalid milestone index")
+            _revert("invalid milestone index")
         m = a["milestones"][milestone_index]
         output = {k: m[k] for k in ("index", "title", "criteria", "status", "submissions", "rounds_used", "max_rounds")}
         output["verified_rounds"] = len(m["verifications"])
@@ -289,8 +351,8 @@ class TrustPayVerification(gl.Contract):
     def get_verification(self, agreement_id: int, milestone_index: int, round: int) -> dict:
         a = self._load(agreement_id)
         if not isinstance(milestone_index, int) or not 0 <= milestone_index < len(a["milestones"]):
-            raise ValueError("invalid milestone index")
+            _revert("invalid milestone index")
         verifications = a["milestones"][milestone_index]["verifications"]
         if not isinstance(round, int) or round < 1 or round > len(verifications):
-            raise ValueError("verification round not found")
+            _revert("verification round not found")
         return verifications[round - 1]

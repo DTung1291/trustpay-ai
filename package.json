@@ -12,6 +12,8 @@
     "typecheck": "tsc --noEmit",
     "build": "vite build",
     "test:frontend": "bun test tests/frontend",
+    "test:contract": "bash scripts/check-genlayer-contract.sh",
+    "test": "bun run test:frontend && bun run test:contract",
     "check": "bash scripts/check.sh",
     "contracts:build": "forge build",
     "contracts:test": "forge test"

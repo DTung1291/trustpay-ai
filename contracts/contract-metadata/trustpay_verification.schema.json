@@ -1,0 +1,150 @@
+{
+  "ctor": {
+    "params": [],
+    "kwparams": {}
+  },
+  "methods": {
+    "accept_agreement": {
+      "params": [
+        [
+          "agreement_id",
+          "int"
+        ]
+      ],
+      "kwparams": {},
+      "readonly": false,
+      "ret": "any",
+      "payable": false
+    },
+    "create_agreement": {
+      "params": [
+        [
+          "title",
+          "string"
+        ],
+        [
+          "description",
+          "string"
+        ],
+        [
+          "freelancer",
+          "address"
+        ],
+        [
+          "milestones_json",
+          "string"
+        ]
+      ],
+      "kwparams": {},
+      "readonly": false,
+      "ret": "int",
+      "payable": false
+    },
+    "get_agreement": {
+      "params": [
+        [
+          "agreement_id",
+          "int"
+        ]
+      ],
+      "kwparams": {},
+      "readonly": true,
+      "ret": "dict"
+    },
+    "get_agreement_count": {
+      "params": [],
+      "kwparams": {},
+      "readonly": true,
+      "ret": "int"
+    },
+    "get_agreement_ids_for": {
+      "params": [
+        [
+          "account",
+          "address"
+        ]
+      ],
+      "kwparams": {},
+      "readonly": true,
+      "ret": [
+        {
+          "$rep": "int"
+        }
+      ]
+    },
+    "get_milestone": {
+      "params": [
+        [
+          "agreement_id",
+          "int"
+        ],
+        [
+          "milestone_index",
+          "int"
+        ]
+      ],
+      "kwparams": {},
+      "readonly": true,
+      "ret": "dict"
+    },
+    "get_verification": {
+      "params": [
+        [
+          "agreement_id",
+          "int"
+        ],
+        [
+          "milestone_index",
+          "int"
+        ],
+        [
+          "round",
+          "int"
+        ]
+      ],
+      "kwparams": {},
+      "readonly": true,
+      "ret": "dict"
+    },
+    "request_verification": {
+      "params": [
+        [
+          "agreement_id",
+          "int"
+        ],
+        [
+          "milestone_index",
+          "int"
+        ]
+      ],
+      "kwparams": {},
+      "readonly": false,
+      "ret": "any",
+      "payable": false
+    },
+    "submit_deliverable": {
+      "params": [
+        [
+          "agreement_id",
+          "int"
+        ],
+        [
+          "milestone_index",
+          "int"
+        ],
+        [
+          "evidence_url",
+          "string"
+        ],
+        [
+          "commit_sha",
+          "string"
+        ]
+      ],
+      "kwparams": {},
+      "readonly": false,
+      "ret": "any",
+      "payable": false
+    }
+  }
+}

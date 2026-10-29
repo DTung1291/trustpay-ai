@@ -26,7 +26,7 @@ Contents
 ````markdown
 # TrustPay AI: Intelligent Contract Specification
 
-Status: specification only. No contract source, deployment, test run, or consensus result exists yet. Every API name below must be checked against https://docs.genlayer.com/ before implementation.
+Status: implemented and verified. The deployable contract is `contracts/trustpay_verification.py`; local tests pass, and the Studionet workflow recorded in `docs/deployment-evidence.md` finalized with an `APPROVED` consensus result.
 
 ## 1. Purpose
 
@@ -649,7 +649,7 @@ None of these are settled facts. Each needs the external developer's confirmatio
 | U12 | Whether MetaMask-style wallets sign GenLayer transactions on Studionet with the flow in genlayer-js 1.1.8 (`createClient` with `account` address and `provider`, plus `connect('studionet')`). Not tested. |
 | U13 | An accepted transaction can still be appealed during the appeal window. The frontend refreshes on Accepted and on Finalized, but does not warn if an appeal changes the outcome. |
 | U14 | Time to finalize on Studionet is unknown. The frontend polling timeout is 15 minutes. |
-| U15 | Fixed in this repository: no contract, no deployment, no integration test, and no live verification has ever run. Everything above about on-chain behavior comes from documentation, not observation. |
+| U15 | Resolved: the contract is deployed at `0x570945847102A400FD76A4842394Fc23aDb8635a`; create, accept, submit, and verification writes finalized on Studionet, and `get_verification(1, 0, 1)` returned `APPROVED`. See `docs/deployment-evidence.md`. |
 
 ## 10. Sources
 
