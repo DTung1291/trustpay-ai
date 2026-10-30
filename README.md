@@ -18,7 +18,7 @@ Read this first.
 
 - Connect a browser wallet and switch it to GenLayer Studionet.
 - Create an agreement with milestones and acceptance criteria.
-- As the named freelancer, accept the agreement and submit evidence (https URL, optional commit SHA).
+- As the named freelancer, accept the agreement and submit an immutable GitHub file URL plus the matching full 40-character commit SHA.
 - As client or freelancer, request verification and follow the transaction through consensus.
 - Read the verdict, per-criterion results, and reasoning stored by the contract.
 - See a dashboard of your agreements, built only from contract reads.

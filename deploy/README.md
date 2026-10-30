@@ -38,7 +38,7 @@ After deployment:
 
 1. Call `get_agreement_count`; it must return `0` on a fresh deployment.
 2. Configure the frontend with the address and create an agreement from the client account.
-3. From the named freelancer account, accept it and submit a public GitHub evidence URL.
+3. From the named freelancer account, accept it and submit an immutable GitHub file URL plus its matching full 40-character commit SHA.
 4. Request verification and inspect the Studio transaction timeline. It must show validator votes and a finalized successful execution.
 5. Call `get_verification(..., round=1)` and save the returned verdict plus the transaction hash as submission evidence.
 6. Record the address and transaction hashes in the deployment record below.

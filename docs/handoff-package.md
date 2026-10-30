@@ -60,7 +60,7 @@ Agreement
 Milestone
 - `index`, `title`, `criteria`: list of 1 to 10 criterion strings, each with a length cap
 - `status`: AWAITING_EVIDENCE, EVIDENCE_SUBMITTED, VERIFYING, APPROVED, REJECTED, INCONCLUSIVE
-- `submissions`: list of `{url, commit_sha (optional), submitted_by, submitted_at, round}`
+- `submissions`: list of `{url, commit_sha (required full SHA), submitted_by, submitted_at, round}`
 - `rounds_used`, `max_rounds` (constant, proposed 3)
 - `verifications`: list of Verification records
 
@@ -106,8 +106,8 @@ Reads
 
 ## 7. Input validation (deterministic, before any AI call)
 
-- `evidence_url`: must start with `https://`, length-capped, no credentials in the URL, no whitespace or control characters. Preferred hosts are github.com (repository, commit, pull request, release) and raw.githubusercontent.com. Other HTTPS hosts are accepted but flagged in the stored record.
-- `commit_sha`: optional, 7 to 40 hex characters.
+- `evidence_url`: must be a `github.com/.../blob/<sha>/<path>` or `raw.githubusercontent.com/.../<sha>/<path>` file URL. Mutable pages and refs are rejected.
+- `commit_sha`: required, exactly 40 hexadecimal characters, and must match the URL ref.
 - Text fields: length caps, no empty strings, trimmed.
 - Criteria are fixed at creation and never editable. After acceptance no function writes to them.
 
@@ -200,7 +200,7 @@ All view methods return JSON-compatible values. Addresses are `0x` hex strings. 
 |---|---|---|
 | `create_agreement` | `title: str`, `description: str`, `freelancer: Address`, `milestones_json: str` | `milestones_json` is a JSON array of `{"title": str, "criteria": [str, ...]}` |
 | `accept_agreement` | `agreement_id: int` | Named freelancer only |
-| `submit_deliverable` | `agreement_id: int`, `milestone_index: int`, `evidence_url: str`, `commit_sha: str` | Empty string means no commit SHA |
+| `submit_deliverable` | `agreement_id: int`, `milestone_index: int`, `evidence_url: str`, `commit_sha: str` | Immutable GitHub file URL and matching full SHA required |
 | `request_verification` | `agreement_id: int`, `milestone_index: int` | Client or freelancer |
 
 ## Reads (sent with `readContract`)
@@ -438,7 +438,7 @@ Return type rules
 | criteria per milestone | 1 to 10 |
 | criterion text | 1 to 300 chars |
 | evidence URL | at most 500 chars, starts with `https://`, no whitespace or control characters, no embedded credentials, host contains a dot |
-| commit SHA | empty, or 7 to 40 hex chars |
+| commit SHA | exactly 40 hex characters and equal to the URL ref |
 
 The contract must enforce its own limits and should not be looser than needed. It must not be stricter than the table, or valid frontend input will be rejected.
 
@@ -623,7 +623,7 @@ Network facts used by the frontend, taken from the genlayer-js `studionet` chain
 7. Smoke test with two accounts, A (client) and B (freelancer):
    1. A: New agreement with B as freelancer, one milestone, two criteria. Expect the transaction to reach Accepted/Finalized and the agreement to appear on A's dashboard.
    2. B: open the agreement, Accept. Expect status ACTIVE and "Criteria are locked."
-   3. B: Submit evidence (public https URL, optional SHA). Expect milestone EVIDENCE_SUBMITTED and a Round 1 entry in the evidence history.
+   3. B: Submit evidence (immutable GitHub file URL and matching full SHA). Expect milestone EVIDENCE_SUBMITTED and a Round 1 entry in the evidence history.
    4. A or B: Request AI verification. Expect the transaction to move through consensus, then the milestone to show a verdict and a "View verification" link.
    5. Open the results page. Expect per-criterion results, the summary, and the evaluated evidence link.
    6. Negative checks: A (the client) tries to accept; a second verification request after a verdict; a fourth evidence submission after three rounds; an `http://` URL (blocked by the UI, and send it directly to confirm the contract rejects it too).

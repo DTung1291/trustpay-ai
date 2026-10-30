@@ -20,6 +20,7 @@ MAX_MILESTONES = 5
 MAX_ROUNDS = 3
 MAX_CRITERIA = 10
 MAX_EVIDENCE_BYTES = 12000
+MAX_GITHUB_RESPONSE_BYTES = 20000
 
 
 def _revert(message):
@@ -50,14 +51,16 @@ def _evidence_url(value):
         _revert("evidence_url: HTTPS URL without credentials required")
     if parsed.port is not None and parsed.port != 443:
         _revert("evidence_url: nonstandard port")
-    if parsed.hostname.lower() not in ("github.com", "raw.githubusercontent.com", "api.github.com"):
+    if parsed.hostname.lower() not in ("github.com", "raw.githubusercontent.com"):
         _revert("evidence_url: MVP permits public GitHub hosts only")
+    if parsed.query or parsed.fragment:
+        _revert("evidence_url: query strings and fragments are not allowed")
     return value
 
 
 def _sha(value):
-    if not isinstance(value, str) or (value and not re.fullmatch(r"[0-9a-fA-F]{7,40}", value)):
-        _revert("commit_sha: 7-40 hex characters or empty")
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9a-fA-F]{40}", value):
+        _revert("commit_sha: full 40-character SHA required")
     return value.lower()
 
 
@@ -91,37 +94,56 @@ def _fallback(n, reason):
     ], "summary": reason[:500]}
 
 
-def _github_evidence_request(url):
-    """Map immutable GitHub file URLs to the validator-friendly Contents API."""
+def _github_evidence_request(url, sha):
+    """Return a GitHub Contents API URL pinned to the submitted commit.
+
+    Only file URLs are accepted. Mutable repository, branch, pull-request and
+    release pages cannot accidentally become evidence, and an embedded URL ref
+    must be the exact same commit as the separately submitted SHA.
+    """
     parsed = urlsplit(url)
     parts = parsed.path.lstrip("/").split("/")
-    request_url = url
-    if parsed.hostname.lower() == "raw.githubusercontent.com" and len(parts) >= 4:
+    host = parsed.hostname.lower()
+    if host == "raw.githubusercontent.com" and len(parts) >= 4:
         owner, repo, ref = parts[:3]
         path = "/".join(parts[3:])
-        request_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={ref}"
-    elif parsed.hostname.lower() == "github.com" and len(parts) >= 5 and parts[2] == "blob":
+    elif host == "github.com" and len(parts) >= 5 and parts[2] == "blob":
         owner, repo, ref = parts[0], parts[1], parts[3]
         path = "/".join(parts[4:])
-        request_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={ref}"
-    return request_url
-
-
-def _decode_evidence_body(body):
-    """Decode raw bytes or GitHub's base64 Contents API response."""
-    if isinstance(body, bytes):
-        text = body[:MAX_EVIDENCE_BYTES].decode("utf-8", errors="replace")
     else:
-        text = str(body)[:MAX_EVIDENCE_BYTES]
-    if text.lstrip().startswith("{"):
-        try:
-            payload = json.loads(text)
-            if payload.get("encoding") == "base64" and isinstance(payload.get("content"), str):
-                encoded = payload["content"].replace("\n", "")
-                return base64.b64decode(encoded)[:MAX_EVIDENCE_BYTES].decode("utf-8", errors="replace")
-        except (ValueError, TypeError):
-            pass
-    return text
+        _revert("evidence_url: immutable GitHub file URL required")
+    if not owner or not repo or not path or any(part in ("", ".", "..") for part in path.split("/")):
+        _revert("evidence_url: invalid GitHub file path")
+    if ref.lower() != sha:
+        _revert("evidence_url: URL ref must match commit_sha")
+    return f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={sha}"
+
+
+def _decode_github_file(response, expected_sha):
+    """Fail closed unless GitHub returned the requested commit-pinned file."""
+    status = getattr(response, "status_code", getattr(response, "status", None))
+    if status != 200:
+        raise ValueError(f"GitHub API HTTP status {status}")
+    raw = response.body
+    if isinstance(raw, bytes):
+        text = raw[:MAX_GITHUB_RESPONSE_BYTES].decode("utf-8", errors="strict")
+    else:
+        text = str(raw)[:MAX_GITHUB_RESPONSE_BYTES]
+    payload = json.loads(text)
+    if not isinstance(payload, dict) or payload.get("type") != "file":
+        raise ValueError("GitHub response is not a file")
+    html_url = payload.get("html_url")
+    content = payload.get("content")
+    if not isinstance(html_url, str) or not isinstance(content, str) or payload.get("encoding") != "base64":
+        raise ValueError("GitHub file response is incomplete")
+    html_parts = urlsplit(html_url).path.lstrip("/").split("/")
+    if (urlsplit(html_url).hostname or "").lower() != "github.com" or len(html_parts) < 5 or html_parts[2] != "blob":
+        raise ValueError("GitHub response has invalid canonical URL")
+    if html_parts[3].lower() != expected_sha:
+        raise ValueError("GitHub response ref does not match commit_sha")
+    encoded = content.replace("\n", "")
+    decoded = base64.b64decode(encoded, validate=True)
+    return decoded[:MAX_EVIDENCE_BYTES].decode("utf-8", errors="replace")
 
 
 def _normalise_eval(value, criterion_count):
@@ -227,6 +249,9 @@ class TrustPayVerification(gl.Contract):
             _revert("milestone not accepting evidence")
         url = _evidence_url(evidence_url)
         sha = _sha(commit_sha)
+        # Validate the URL/SHA binding before persisting the submission. The
+        # canonical request is rebuilt again during verification.
+        _github_evidence_request(url, sha)
         m["submissions"].append({"url": url, "commit_sha": sha,
             "submitted_by": a["freelancer"], "submitted_at": _timestamp(),
             "round": m["rounds_used"] + 1})
@@ -254,9 +279,9 @@ class TrustPayVerification(gl.Contract):
         def independent_assessment():
             try:
                 # Public HTTPS content is untrusted; use bounded text only.
-                request_url = _github_evidence_request(url)
-                response = gl.nondet.web.get(request_url)
-                body = _decode_evidence_body(response.body)
+                request_url = _github_evidence_request(url, sha)
+                response = gl.nondet.web.request(request_url, method="GET")
+                body = _decode_github_file(response, sha)
                 if not body.strip():
                     return _fallback(len(criteria), "evidence empty")
                 safe_criteria = json.dumps(criteria, ensure_ascii=True)

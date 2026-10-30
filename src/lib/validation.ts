@@ -12,7 +12,7 @@ export const LIMITS = {
 } as const
 
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/
-const SHA_RE = /^[0-9a-fA-F]{7,40}$/
+const SHA_RE = /^[0-9a-fA-F]{40}$/
 // eslint-disable-next-line no-control-regex
 const CONTROL_OR_SPACE_RE = /[\u0000-\u0020\u007f]/
 
@@ -37,14 +37,35 @@ export function validateEvidenceUrl(raw: string): string | null {
     return 'That is not a valid URL.'
   }
   if (parsed.username || parsed.password) return 'URLs with embedded credentials are not allowed.'
-  if (!parsed.hostname.includes('.')) return 'URL must use a public host name.'
+  if (parsed.hostname !== 'github.com' && parsed.hostname !== 'raw.githubusercontent.com')
+    return 'Evidence must be a public GitHub file URL.'
+  if (parsed.search || parsed.hash) return 'Evidence URL must not contain a query string or fragment.'
+  const parts = parsed.pathname.replace(/^\//, '').split('/')
+  const isBlob = parsed.hostname === 'github.com' && parts.length >= 5 && parts[2] === 'blob'
+  const isRaw = parsed.hostname === 'raw.githubusercontent.com' && parts.length >= 4
+  if (!isBlob && !isRaw)
+    return 'Use an immutable GitHub file URL containing the full commit SHA.'
+  const ref = parsed.hostname === 'github.com' ? parts[3] : parts[2]
+  if (!SHA_RE.test(ref)) return 'The GitHub file URL must contain a full 40-character commit SHA.'
   return null
 }
 
 export function validateCommitSha(raw: string): string | null {
   const value = raw.trim()
-  if (!value) return null
-  return SHA_RE.test(value) ? null : 'Commit SHA must be 7 to 40 hexadecimal characters.'
+  return SHA_RE.test(value) ? null : 'A full 40-character commit SHA is required.'
+}
+
+export function validateEvidenceSubmission(rawUrl: string, rawSha: string): string | null {
+  const urlProblem = validateEvidenceUrl(rawUrl)
+  if (urlProblem) return urlProblem
+  const shaProblem = validateCommitSha(rawSha)
+  if (shaProblem) return shaProblem
+  const parsed = new URL(rawUrl.trim())
+  const parts = parsed.pathname.replace(/^\//, '').split('/')
+  const ref = parsed.hostname === 'github.com' ? parts[3] : parts[2]
+  return ref.toLowerCase() === rawSha.trim().toLowerCase()
+    ? null
+    : 'The commit SHA in the evidence URL must match the submitted commit SHA.'
 }
 
 export function isGithubEvidence(raw: string): boolean {

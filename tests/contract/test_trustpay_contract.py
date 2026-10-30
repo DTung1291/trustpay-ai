@@ -14,6 +14,7 @@ import unittest
 
 CLIENT = "0x1111111111111111111111111111111111111111"
 FREELANCER = "0x2222222222222222222222222222222222222222"
+COMMIT_SHA = "a" * 40
 
 
 class UserError(Exception):
@@ -47,7 +48,14 @@ class Runtime:
     def __init__(self):
         self.sender = Address(CLIENT)
         self.llm_results = []
-        self.web_body = b"public delivery evidence"
+        self.web_status = 200
+        self.web_requests = []
+        self.web_body = json.dumps({
+            "type": "file",
+            "encoding": "base64",
+            "content": "cHVibGljIGRlbGl2ZXJ5IGV2aWRlbmNl",
+            "html_url": f"https://github.com/example/repo/blob/{COMMIT_SHA}/README.md",
+        }).encode()
 
     def run_nondet_unsafe(self, leader_fn, validator_fn):
         leader_value = leader_fn()
@@ -76,11 +84,9 @@ def load_contract(runtime):
 
     class Web:
         @staticmethod
-        def get(_url):
-            # Studionet's GenVM Response currently exposes ``body`` but not
-            # ``status_code``; mirror the live runtime so tests catch accidental
-            # use of the documentation-only attribute.
-            return types.SimpleNamespace(body=runtime.web_body)
+        def request(url, method="GET"):
+            runtime.web_requests.append((url, method))
+            return types.SimpleNamespace(body=runtime.web_body, status_code=runtime.web_status)
 
     def exec_prompt(_prompt, response_format=None):
         assert response_format == "json"
@@ -131,7 +137,9 @@ class TrustPayContractTests(unittest.TestCase):
         self.set_sender(FREELANCER)
         self.contract.accept_agreement(agreement_id)
         self.contract.submit_deliverable(
-            agreement_id, 0, "https://github.com/example/repo", "abcdef1"
+            agreement_id, 0,
+            f"https://github.com/example/repo/blob/{COMMIT_SHA}/README.md",
+            COMMIT_SHA,
         )
         return agreement_id
 
@@ -155,6 +163,10 @@ class TrustPayContractTests(unittest.TestCase):
             self.contract.get_verification(agreement_id, 0, 1)["outcome"], "APPROVED"
         )
         self.assertEqual(self.contract.get_agreement_ids_for(Address(CLIENT)), [agreement_id])
+        self.assertEqual(
+            self.runtime.web_requests[0],
+            (f"https://api.github.com/repos/example/repo/contents/README.md?ref={COMMIT_SHA}", "GET"),
+        )
 
     def test_address_auth_uses_canonical_hex_not_string_rendering(self):
         agreement_id = self.contract.create_agreement(
@@ -205,8 +217,62 @@ class TrustPayContractTests(unittest.TestCase):
         self.contract.accept_agreement(agreement_id)
         with self.assertRaisesRegex(UserError, "public GitHub hosts only"):
             self.contract.submit_deliverable(
-                agreement_id, 0, "https://example.com/private-evidence", ""
+                agreement_id, 0, "https://example.com/private-evidence", COMMIT_SHA
             )
+
+    def test_mutable_urls_and_short_or_missing_shas_are_rejected(self):
+        agreement_id = self.contract.create_agreement(
+            "Title", "Description", Address(FREELANCER),
+            json.dumps([{"title": "M1", "criteria": ["C1"]}]),
+        )
+        self.set_sender(FREELANCER)
+        self.contract.accept_agreement(agreement_id)
+        for url, sha in (
+            ("https://github.com/example/repo", COMMIT_SHA),
+            ("https://github.com/example/repo/pull/1", COMMIT_SHA),
+            ("https://github.com/example/repo/blob/main/README.md", COMMIT_SHA),
+            (f"https://github.com/example/repo/blob/{COMMIT_SHA}/README.md", "abcdef1"),
+            (f"https://github.com/example/repo/blob/{COMMIT_SHA}/README.md", ""),
+        ):
+            with self.subTest(url=url, sha=sha), self.assertRaises(UserError):
+                self.contract.submit_deliverable(agreement_id, 0, url, sha)
+
+    def test_url_ref_mismatch_is_rejected(self):
+        agreement_id = self.contract.create_agreement(
+            "Title", "Description", Address(FREELANCER),
+            json.dumps([{"title": "M1", "criteria": ["C1"]}]),
+        )
+        self.set_sender(FREELANCER)
+        self.contract.accept_agreement(agreement_id)
+        other_sha = "b" * 40
+        with self.assertRaisesRegex(UserError, "URL ref must match"):
+            self.contract.submit_deliverable(
+                agreement_id, 0,
+                f"https://raw.githubusercontent.com/example/repo/{other_sha}/README.md",
+                COMMIT_SHA,
+            )
+
+    def test_github_error_response_cannot_approve(self):
+        agreement_id = self.create_and_submit()
+        self.runtime.web_status = 404
+        self.runtime.web_body = b'{"message":"Not Found"}'
+        self.contract.request_verification(agreement_id, 0)
+        verification = self.contract.get_verification(agreement_id, 0, 1)
+        self.assertEqual(verification["outcome"], "INCONCLUSIVE")
+        self.assertIn("GitHub API HTTP status 404", verification["summary"])
+        self.assertEqual(self.runtime.llm_results, [])
+
+    def test_github_response_ref_mismatch_cannot_approve(self):
+        agreement_id = self.create_and_submit()
+        wrong_sha = "b" * 40
+        payload = json.loads(self.runtime.web_body)
+        payload["html_url"] = f"https://github.com/example/repo/blob/{wrong_sha}/README.md"
+        self.runtime.web_body = json.dumps(payload).encode()
+        self.contract.request_verification(agreement_id, 0)
+        verification = self.contract.get_verification(agreement_id, 0, 1)
+        self.assertEqual(verification["outcome"], "INCONCLUSIVE")
+        self.assertIn("response ref does not match", verification["summary"])
+        self.assertEqual(self.runtime.llm_results, [])
 
     def test_malformed_llm_output_is_inconclusive(self):
         agreement_id = self.create_and_submit()

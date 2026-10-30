@@ -10,7 +10,7 @@ All view methods return JSON-compatible values. Addresses are `0x` hex strings. 
 |---|---|---|
 | `create_agreement` | `title: str`, `description: str`, `freelancer: Address`, `milestones_json: str` | `milestones_json` is a JSON array of `{"title": str, "criteria": [str, ...]}` |
 | `accept_agreement` | `agreement_id: int` | Named freelancer only |
-| `submit_deliverable` | `agreement_id: int`, `milestone_index: int`, `evidence_url: str`, `commit_sha: str` | Empty string means no commit SHA |
+| `submit_deliverable` | `agreement_id: int`, `milestone_index: int`, `evidence_url: str`, `commit_sha: str` | Immutable GitHub file URL and matching full 40-character SHA are required |
 | `request_verification` | `agreement_id: int`, `milestone_index: int` | Client or freelancer |
 
 ## Reads (sent with `readContract`)

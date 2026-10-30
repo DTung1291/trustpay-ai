@@ -34,7 +34,7 @@ Agreement
 Milestone
 - `index`, `title`, `criteria`: list of 1 to 10 criterion strings, each with a length cap
 - `status`: AWAITING_EVIDENCE, EVIDENCE_SUBMITTED, VERIFYING, APPROVED, REJECTED, INCONCLUSIVE
-- `submissions`: list of `{url, commit_sha (optional), submitted_by, submitted_at, round}`
+- `submissions`: list of `{url, commit_sha (required full SHA), submitted_by, submitted_at, round}`
 - `rounds_used`, `max_rounds` (constant, proposed 3)
 - `verifications`: list of Verification records
 
@@ -80,15 +80,15 @@ Reads
 
 ## 7. Input validation (deterministic, before any AI call)
 
-- `evidence_url`: must start with `https://`, length-capped, no credentials in the URL, no whitespace or control characters. Preferred hosts are github.com (repository, commit, pull request, release) and raw.githubusercontent.com. Other HTTPS hosts are accepted but flagged in the stored record.
-- `commit_sha`: optional, 7 to 40 hex characters.
+- `evidence_url`: must be a `github.com/.../blob/<sha>/<path>` or `raw.githubusercontent.com/.../<sha>/<path>` file URL. Repository, branch, pull-request, release, directory, query-string, and fragment URLs are rejected.
+- `commit_sha`: required, exactly 40 hexadecimal characters, and must match the URL's embedded ref.
 - Text fields: length caps, no empty strings, trimmed.
 - Criteria are fixed at creation and never editable. After acceptance no function writes to them.
 
 ## 8. Verification flow
 
 1. `request_verification` runs deterministic checks first (sender role, agreement ACTIVE, milestone status EVIDENCE_SUBMITTED). Per the GenLayer docs, transactions addressed to the same Intelligent Contract pass through proposal and voting sequentially, and a transaction that ends undetermined does not modify contract state. A second request queued behind the first therefore executes against the updated state, finds the milestone no longer in EVIDENCE_SUBMITTED, and reverts. That is the duplicate and concurrent verification guard. No in-flight marker is needed.
-2. The leader node fetches the evidence URL through the GenLayer-supported web access mechanism. The fetch result is bounded in size and treated purely as data.
+2. The leader rebuilds a GitHub Contents API request with `?ref=<submitted SHA>`. It requires HTTP 200, a file response, base64 content, and a canonical GitHub `html_url` whose ref equals that SHA. Any failure becomes INCONCLUSIVE before an LLM call.
 3. The leader prompts the model with the immutable criteria and the fetched evidence, and requires a strict JSON answer with the shape in section 4.
 4. Validators each run their own evaluation of the same evidence against the same criteria and compare it with the leader's result under the Equivalence Principle. The compared fields are the substantive ones: the overall outcome and the per-criterion `met` values. Free-text reasoning is not compared.
 5. If validators agree, the result is written as a Verification record and the milestone moves to its next state. If consensus fails, the transaction is undetermined and contract state is unchanged (see section 10).
@@ -114,7 +114,7 @@ The model proposes per-criterion results. The contract derives the overall outco
 
 | Failure | Expected behavior |
 |---|---|
-| Evidence URL unreachable or non-200 | INCONCLUSIVE with reason "evidence unreachable"; consumes a round |
+| Evidence URL unreachable, non-200, malformed, or returned for another ref | INCONCLUSIVE; the LLM cannot approve it; consumes a round |
 | Evidence empty or unrelated | INCONCLUSIVE |
 | Model returns malformed output | INCONCLUSIVE with "malformed evaluation" |
 | Validators disagree, consensus not reached | The GenLayer docs state the transaction goes undetermined and does not modify contract state. The milestone stays EVIDENCE_SUBMITTED and no round is consumed, so the request can be retried. The frontend shows the real transaction state (failed) and never a fabricated verdict. |
@@ -140,7 +140,7 @@ The contract keeps the full verification history per milestone so the frontend c
 
 ## 13. Test plan
 
-Local tests currently cover creation/acceptance, access control, evidence host validation, the complete approved flow, malformed model output, read methods, and validator disagreement without a consumed round. Run them with `bun run test:contract`.
+Local tests cover creation/acceptance, access control, immutable URL/SHA binding, mutable URL rejection, URL and GitHub response ref mismatches, non-success GitHub responses, the complete approved flow, malformed model output, read methods, and validator disagreement without a consumed round. Run them with `bun run test:contract`.
 
 Integration tests (Studionet): full journey from create to verdict; resubmission round; unreachable URL; consensus-failure handling; transaction status reporting in the frontend.
 

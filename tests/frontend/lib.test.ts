@@ -7,6 +7,7 @@ import {
   serializeMilestones,
   validateAgreementForm,
   validateCommitSha,
+  validateEvidenceSubmission,
   validateEvidenceUrl,
 } from '../../src/lib/validation'
 import type { AgreementBundle } from '../../src/lib/types'
@@ -15,8 +16,10 @@ const CLIENT = '0x1111111111111111111111111111111111111111'
 const FREELANCER = '0x2222222222222222222222222222222222222222'
 
 describe('evidence validation', () => {
-  test('accepts public https URLs', () => {
-    expect(validateEvidenceUrl('https://github.com/org/repo/pull/1')).toBeNull()
+  const sha = 'a'.repeat(40)
+  test('accepts immutable GitHub file URLs', () => {
+    expect(validateEvidenceUrl(`https://github.com/org/repo/blob/${sha}/README.md`)).toBeNull()
+    expect(validateEvidenceUrl(`https://raw.githubusercontent.com/org/repo/${sha}/README.md`)).toBeNull()
   })
   test.each([
     ['', 'required'],
@@ -24,15 +27,23 @@ describe('evidence validation', () => {
     ['https://user:pw@github.com/a/b', 'credentials'],
     ['https://github.com/a b', 'spaces'],
     ['https://localhost/x', 'host'],
+    ['https://github.com/org/repo/pull/1', 'mutable'],
+    ['https://github.com/org/repo/blob/main/README.md', 'branch'],
+    ['https://github.com/org/repo/blob/main/README.md?plain=1', 'query'],
     ['javascript:alert(1)', 'https'],
   ])('rejects %s', (input) => {
     expect(validateEvidenceUrl(input)).not.toBeNull()
   })
-  test('commit sha is optional but strict when present', () => {
-    expect(validateCommitSha('')).toBeNull()
-    expect(validateCommitSha('a1b2c3d')).toBeNull()
+  test('requires a full commit sha', () => {
+    expect(validateCommitSha('')).not.toBeNull()
+    expect(validateCommitSha('a1b2c3d')).not.toBeNull()
+    expect(validateCommitSha(sha)).toBeNull()
     expect(validateCommitSha('xyz')).not.toBeNull()
     expect(validateCommitSha('a'.repeat(41))).not.toBeNull()
+  })
+  test('requires URL ref and submitted SHA to match', () => {
+    expect(validateEvidenceSubmission(`https://github.com/org/repo/blob/${sha}/README.md`, sha)).toBeNull()
+    expect(validateEvidenceSubmission(`https://github.com/org/repo/blob/${'b'.repeat(40)}/README.md`, sha)).not.toBeNull()
   })
   test('detects github hosts', () => {
     expect(isGithubEvidence('https://github.com/a/b')).toBe(true)

@@ -9,8 +9,7 @@ import {
   isGithubEvidence,
   LIMITS,
   shortAddress,
-  validateCommitSha,
-  validateEvidenceUrl,
+  validateEvidenceSubmission,
 } from '@/lib/validation'
 import { Badge, ErrorNote, MilestoneBadge, Spinner } from './ui'
 
@@ -43,7 +42,7 @@ export function MilestoneCard({ contract, me, agreement, milestone: m, isClient,
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    const problem = validateEvidenceUrl(url) ?? validateCommitSha(sha)
+    const problem = validateEvidenceSubmission(url, sha)
     setError(problem)
     if (problem) return
     void run({
@@ -126,12 +125,12 @@ export function MilestoneCard({ contract, me, agreement, milestone: m, isClient,
             Submit evidence <span className="font-normal text-slate-400">({roundsLeft} round{roundsLeft === 1 ? '' : 's'} left)</span>
           </p>
           <div>
-            <label htmlFor={`url-${m.index}`} className="label">Public HTTPS URL</label>
-            <input id={`url-${m.index}`} className="field" value={url} maxLength={LIMITS.url} onChange={(e) => setUrl(e.target.value)} placeholder="https://github.com/org/repo/pull/12" inputMode="url" />
+            <label htmlFor={`url-${m.index}`} className="label">Immutable GitHub file URL</label>
+            <input id={`url-${m.index}`} className="field" value={url} maxLength={LIMITS.url} onChange={(e) => setUrl(e.target.value)} placeholder="https://github.com/org/repo/blob/&lt;40-char-sha&gt;/README.md" inputMode="url" />
           </div>
           <div>
-            <label htmlFor={`sha-${m.index}`} className="label">Commit SHA (optional)</label>
-            <input id={`sha-${m.index}`} className="field font-mono" value={sha} maxLength={40} onChange={(e) => setSha(e.target.value)} placeholder="a1b2c3d" spellCheck={false} />
+            <label htmlFor={`sha-${m.index}`} className="label">Full commit SHA</label>
+            <input id={`sha-${m.index}`} className="field font-mono" value={sha} maxLength={40} onChange={(e) => setSha(e.target.value)} placeholder="40 hexadecimal characters" spellCheck={false} />
           </div>
           {error && <ErrorNote message={error} />}
           <button type="submit" className="btn-primary" disabled={submitBusy}>
