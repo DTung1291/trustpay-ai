@@ -13,8 +13,8 @@ TrustPay AI is a GenLayer-native milestone verification app. Clients and freelan
 - Web app: implemented (`src/`).
 - Python Intelligent Contract: implemented in `contracts/trustpay_verification.py` with web evidence retrieval, structured LLM evaluation, and independent validator comparison.
 - Contract tests: `tests/contract/test_trustpay_contract.py` covers state transitions, access control, malformed model output, and validator disagreement.
-- Studionet deployment: `0x570945847102A400FD76A4842394Fc23aDb8635a`.
-- Deployment transaction `0x05d08b5d8628e6d51703a4821dfac845648e190c9556412644fe4b8c9e77cd4f` is finalized. The first complete workflow is finalized and `get_verification(1, 0, 1)` returns `APPROVED`; the verification transaction is `0x2b4e7c1b332ad16d454bdb29ea0bdd6951eb44db048b92cf08b58e07f4f74936`.
+- Studionet deployment: `0x4b86090541DA283A0166B6767325DAfd56a04e34`.
+- Deployment transaction `0x09c30b6b83b7550828992ed6dcc94fccec76bceb56498fdc0f036ddd2f1faced` is finalized. The SHA-bound workflow is finalized and `get_verification(1, 0, 1)` returns `APPROVED`; the verification transaction is `0xd017db396b810458f8a2f75cc654754bfe0d7a5f35b12ceef6ad3c50cc9a5e23`.
 
 ## Tech Stack
 

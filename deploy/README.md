@@ -46,9 +46,9 @@ After deployment:
 ## Deployment record
 
 - Network: Studionet (chain ID 61999)
-- Contract address: [`0x570945847102A400FD76A4842394Fc23aDb8635a`](https://explorer-studio.genlayer.com/address/0x570945847102A400FD76A4842394Fc23aDb8635a)
-- Deployment transaction: [`0x05d08b5d8628e6d51703a4821dfac845648e190c9556412644fe4b8c9e77cd4f`](https://explorer-studio.genlayer.com/tx/0x05d08b5d8628e6d51703a4821dfac845648e190c9556412644fe4b8c9e77cd4f) — `FINALIZED`, consensus `Accepted`
-- First finalized verification transaction: [`0x2b4e7c1b332ad16d454bdb29ea0bdd6951eb44db048b92cf08b58e07f4f74936`](https://explorer-studio.genlayer.com/tx/0x2b4e7c1b332ad16d454bdb29ea0bdd6951eb44db048b92cf08b58e07f4f74936) — `FINALIZED`, consensus `Accepted`, stored verdict `APPROVED`
+- Contract address: [`0x4b86090541DA283A0166B6767325DAfd56a04e34`](https://explorer-studio.genlayer.com/address/0x4b86090541DA283A0166B6767325DAfd56a04e34)
+- Deployment transaction: [`0x09c30b6b83b7550828992ed6dcc94fccec76bceb56498fdc0f036ddd2f1faced`](https://explorer-studio.genlayer.com/tx/0x09c30b6b83b7550828992ed6dcc94fccec76bceb56498fdc0f036ddd2f1faced) — `FINALIZED`, consensus `Accepted`
+- SHA-bound verification transaction: [`0xd017db396b810458f8a2f75cc654754bfe0d7a5f35b12ceef6ad3c50cc9a5e23`](https://explorer-studio.genlayer.com/tx/0xd017db396b810458f8a2f75cc654754bfe0d7a5f35b12ceef6ad3c50cc9a5e23) — `FINALIZED`, consensus `Accepted`, stored verdict `APPROVED`
 - Evidence record: `docs/deployment-evidence.md`
 
 ## Point the web app at the contract

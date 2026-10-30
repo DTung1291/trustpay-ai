@@ -5,8 +5,8 @@ This record links the deployable source in `contracts/trustpay_verification.py` 
 ## Deployment
 
 - Network: GenLayer Studionet, chain ID 61999
-- Contract address: [`0x570945847102A400FD76A4842394Fc23aDb8635a`](https://explorer-studio.genlayer.com/address/0x570945847102A400FD76A4842394Fc23aDb8635a)
-- Deployment transaction: [`0x05d08b5d8628e6d51703a4821dfac845648e190c9556412644fe4b8c9e77cd4f`](https://explorer-studio.genlayer.com/tx/0x05d08b5d8628e6d51703a4821dfac845648e190c9556412644fe4b8c9e77cd4f)
+- Contract address: [`0x4b86090541DA283A0166B6767325DAfd56a04e34`](https://explorer-studio.genlayer.com/address/0x4b86090541DA283A0166B6767325DAfd56a04e34)
+- Deployment transaction: [`0x09c30b6b83b7550828992ed6dcc94fccec76bceb56498fdc0f036ddd2f1faced`](https://explorer-studio.genlayer.com/tx/0x09c30b6b83b7550828992ed6dcc94fccec76bceb56498fdc0f036ddd2f1faced)
 - Transaction status: `FINALIZED`
 - Consensus result: `Accepted`
 - Exposed interface: 5 read methods and 4 write methods
@@ -15,16 +15,16 @@ This record links the deployable source in `contracts/trustpay_verification.py` 
 
 Agreement `1`, milestone `0`, verification round `1` was executed in this order:
 
-1. Client created the agreement: [`0xebe34c6957ce1e44584dbaa808d8f78244d3a1a9f8b52b5f5265b4e62e473a17`](https://explorer-studio.genlayer.com/tx/0xebe34c6957ce1e44584dbaa808d8f78244d3a1a9f8b52b5f5265b4e62e473a17) — `FINALIZED`.
-2. Named freelancer accepted it: [`0xe20d26a28b761c93c2bd55d54976dd1c3d5b5e2d4ad9a66c0498cad6db07edc5`](https://explorer-studio.genlayer.com/tx/0xe20d26a28b761c93c2bd55d54976dd1c3d5b5e2d4ad9a66c0498cad6db07edc5) — `FINALIZED`.
-3. Freelancer submitted immutable GitHub evidence: [`0x5a85785ab63ba4519631f5f40f291b09268de3ff84b8112cfffa9aaad843ef37`](https://explorer-studio.genlayer.com/tx/0x5a85785ab63ba4519631f5f40f291b09268de3ff84b8112cfffa9aaad843ef37) — `FINALIZED`.
-4. Freelancer requested validator verification: [`0x2b4e7c1b332ad16d454bdb29ea0bdd6951eb44db048b92cf08b58e07f4f74936`](https://explorer-studio.genlayer.com/tx/0x2b4e7c1b332ad16d454bdb29ea0bdd6951eb44db048b92cf08b58e07f4f74936) — `FINALIZED`, consensus `Accepted`.
+1. Client created the agreement: [`0x06346beb53cf19b3c7d35dadad947b54c8efe0df7d6fa0e1b17339abbb4d4ece`](https://explorer-studio.genlayer.com/tx/0x06346beb53cf19b3c7d35dadad947b54c8efe0df7d6fa0e1b17339abbb4d4ece) — `FINALIZED`, GenVM `SUCCESS`.
+2. Named freelancer accepted it: [`0x6456ac7b6bb3df930c02d93d7c1b4ec161f8489f2b6f44bb19bd7f3a7971ad75`](https://explorer-studio.genlayer.com/tx/0x6456ac7b6bb3df930c02d93d7c1b4ec161f8489f2b6f44bb19bd7f3a7971ad75) — `FINALIZED`, GenVM `SUCCESS`.
+3. Freelancer submitted immutable GitHub evidence: [`0xcb71ca972d3fe1684e5ac39666c99bd520d70472fa5a0636d2dccf9fb6a62ece`](https://explorer-studio.genlayer.com/tx/0xcb71ca972d3fe1684e5ac39666c99bd520d70472fa5a0636d2dccf9fb6a62ece) — `FINALIZED`, GenVM `SUCCESS`.
+4. Freelancer requested validator verification: [`0xd017db396b810458f8a2f75cc654754bfe0d7a5f35b12ceef6ad3c50cc9a5e23`](https://explorer-studio.genlayer.com/tx/0xd017db396b810458f8a2f75cc654754bfe0d7a5f35b12ceef6ad3c50cc9a5e23) — `FINALIZED`, GenVM `SUCCESS`, consensus `Accepted`.
 
 Evidence evaluated by validators:
 
-- URL: [`README.md` at commit `4f39ae31...`](https://raw.githubusercontent.com/DTung1291/trustpay-ai/4f39ae31a630123831c352825014f0f3931a4742/README.md)
-- Commit SHA: `4f39ae31a630123831c352825014f0f3931a4742`
-- Criterion: the README identifies TrustPay AI and describes GenLayer milestone verification.
+- URL: [`README.md` at commit `2ca6f576...`](https://github.com/DTung1291/trustpay-ai/blob/2ca6f57606d162f0bfafe81a9c74b9b0bf25d07b/README.md)
+- Commit SHA: `2ca6f57606d162f0bfafe81a9c74b9b0bf25d07b`
+- Criterion: the README instructs freelancers to submit an immutable GitHub file URL plus the matching full 40-character commit SHA.
 
 ## Stored verification result
 
@@ -34,15 +34,15 @@ The accepted-state call `get_verification(1, 0, 1)` returned:
 {
   "outcome": "APPROVED",
   "round": 1,
-  "evidence_commit_sha": "4f39ae31a630123831c352825014f0f3931a4742",
+  "evidence_commit_sha": "2ca6f57606d162f0bfafe81a9c74b9b0bf25d07b",
   "criteria_results": [
     {
       "criterion_index": 0,
       "met": true,
-      "reason": "README title is TrustPay AI: Intelligent Milestone Verification and it describes requesting AI-assisted verdicts from a GenLayer Intelligent Contract for milestone verification."
+      "reason": "README.md at provided commit explicitly states that the freelancer must submit an immutable GitHub file URL plus the matching full 40-character commit SHA."
     }
   ],
-  "summary": "The README publicly identifies the project as TrustPay AI: Intelligent Milestone Verification and describes GenLayer-based milestone verification via an AI-assisted verdict from a GenLayer Intelligent Contract."
+  "summary": "Criterion 0 is met. The README in the referenced commit clearly instructs freelancers to submit an immutable GitHub file URL and its matching 40-character commit SHA."
 }
 ```
 

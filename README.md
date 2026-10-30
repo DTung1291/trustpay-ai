@@ -10,8 +10,8 @@ Read this first.
 
 - The web app is implemented and talks to GenLayer Studionet through genlayer-js.
 - The deployable Python Intelligent Contract is in `contracts/trustpay_verification.py`. It fetches public GitHub evidence inside a nondeterministic block, asks the validator LLM for a strict per-criterion result, and uses `gl.vm.run_nondet_unsafe` so validators independently compare the leader's decisions before state is updated.
-- The current Studionet deployment is finalized at [`0x5709...635a`](https://explorer-studio.genlayer.com/address/0x570945847102A400FD76A4842394Fc23aDb8635a). Its [deployment transaction](https://explorer-studio.genlayer.com/tx/0x05d08b5d8628e6d51703a4821dfac845648e190c9556412644fe4b8c9e77cd4f) completed through full validator consensus.
-- A live end-to-end workflow is complete: create, accept, submit evidence, and [request verification](https://explorer-studio.genlayer.com/tx/0x2b4e7c1b332ad16d454bdb29ea0bdd6951eb44db048b92cf08b58e07f4f74936) all finalized. `get_verification(1, 0, 1)` returns `APPROVED` with the criterion marked `true` for the immutable README at commit `4f39ae31a630123831c352825014f0f3931a4742`.
+- The current Studionet deployment is finalized at [`0x4b86...4e34`](https://explorer-studio.genlayer.com/address/0x4b86090541DA283A0166B6767325DAfd56a04e34). Its [deployment transaction](https://explorer-studio.genlayer.com/tx/0x09c30b6b83b7550828992ed6dcc94fccec76bceb56498fdc0f036ddd2f1faced) completed through full validator consensus.
+- A live SHA-bound workflow is complete: create, accept, submit evidence, and [request verification](https://explorer-studio.genlayer.com/tx/0xd017db396b810458f8a2f75cc654754bfe0d7a5f35b12ceef6ad3c50cc9a5e23) all finalized. `get_verification(1, 0, 1)` returns `APPROVED` with the criterion marked `true` for `README.md` at commit `2ca6f57606d162f0bfafe81a9c74b9b0bf25d07b`.
 - Local contract tests cover transitions, permissions, malformed output, and validator disagreement. The live transaction record and stored verdict are documented in `docs/deployment-evidence.md`.
 
 ## What you can do in the app

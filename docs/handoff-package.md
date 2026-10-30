@@ -649,7 +649,7 @@ None of these are settled facts. Each needs the external developer's confirmatio
 | U12 | Whether MetaMask-style wallets sign GenLayer transactions on Studionet with the flow in genlayer-js 1.1.8 (`createClient` with `account` address and `provider`, plus `connect('studionet')`). Not tested. |
 | U13 | An accepted transaction can still be appealed during the appeal window. The frontend refreshes on Accepted and on Finalized, but does not warn if an appeal changes the outcome. |
 | U14 | Time to finalize on Studionet is unknown. The frontend polling timeout is 15 minutes. |
-| U15 | Resolved: the contract is deployed at `0x570945847102A400FD76A4842394Fc23aDb8635a`; create, accept, submit, and verification writes finalized on Studionet, and `get_verification(1, 0, 1)` returned `APPROVED`. See `docs/deployment-evidence.md`. |
+| U15 | Resolved: the SHA-bound contract is deployed at `0x4b86090541DA283A0166B6767325DAfd56a04e34`; create, accept, immutable evidence submission, and verification writes finalized on Studionet, and `get_verification(1, 0, 1)` returned `APPROVED`. See `docs/deployment-evidence.md`. |
 
 ## 10. Sources
 
